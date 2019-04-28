@@ -7,18 +7,46 @@ import (
 	"net/http"
 	"os"
 	"io/ioutil"
+	"mime/multipart"
 )
 
-const maxUploadSize = 2 * 1024
+const maxUploadSize = 2 * 1024 * 1024 // 2mb
+
+func fileSizeIsOk(w http.ResponseWriter, r *http.Request) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
+	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
+		return false
+	}
+	return true
+}
+
+func validateFileType(file multipart.File) bool {
+	fileBytes, err := ioutil.ReadAll(file)
+	if err != nil {
+		fmt.Println("Unable to read file")
+	}
+	fileType := http.DetectContentType(fileBytes)
+	var valid bool
+	// A case for all valid mimetypes
+	switch fileType {
+	case "image/jpeg", "image/jpg":
+		fallthrough
+	case "image/png":
+		valid = true
+		break
+	default:
+		valid = false
+	}
+	return valid
+}
 
 func Upload(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("method:", r.Method)
 	if r.Method == "POST" {
 		// Check file size isnt too big. TODO Move into its own method. Can return nil
-		if err := r.ParseMultipartForm(maxUploadSize); err != nil {
-			fmt.Println("File too big")
+		if ok := fileSizeIsOk(w, r); ok != true {
+			fmt.Fprintf(w, "The file's too big man")
 		}
-		// get the file?
 		// TODO: move into own method.. return file
 		file, handler, err := r.FormFile("uploadFile")
 		if err != nil {
@@ -27,18 +55,7 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		defer file.Close()
-		// Check mimetype
-		// TODO: move into own file.. return bytes?
-		fileBytes, err := ioutil.ReadAll(file)
-		if err != nil {
-			fmt.Println("Unable to read file")
-		}
-		fileType := http.DetectContentType(fileBytes)
-		switch fileType {
-		case "image/jpeg", "image/jpg":
-		case "image/png":
-			break
-		default:
+		if valid := validateFileType(file); valid != true {
 			fmt.Println("Invalid file type asshole")
 			return
 		}
