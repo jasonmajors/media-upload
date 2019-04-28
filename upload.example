@@ -1,0 +1,48 @@
+package main
+
+import (
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+)
+
+func upload(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("method:", r.Method)
+	if r.Method == "POST" {
+		r.ParseMultipartForm(32 << 20)
+		file, handler, err := r.FormFile("uploadFile")
+		if err != nil {
+			fmt.Println("uh no file?")
+			fmt.Println(err)
+			return
+		}
+		defer file.Close()
+		fmt.Fprintf(w, "%v", handler.Header)
+		// Try to save dat dank file
+		f, err := os.OpenFile("./test/"+handler.Filename, os.O_WRONLY|os.O_CREATE, 0666)
+		if err == nil {
+			// WOOOOOOOO
+			fmt.Println("WE FUCKING DID IT WE'RE A GO DEV")
+		} else {
+			// Shit
+			fmt.Println("uh oh")
+			fmt.Println(err)
+			return
+		}
+		defer f.Close()
+		// Saving the file to the filepath
+		io.Copy(f, file)
+	} else {
+		fmt.Fprintf(w, "Method not allowed")
+	}
+}
+
+func main() {
+	http.HandleFunc("/upload", upload)
+	err := http.ListenAndServe(":9090", nil)
+	if err != nil {
+		log.Fatal("ListenAndServe: ", err)
+	}
+}

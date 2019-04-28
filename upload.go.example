@@ -1,0 +1,26 @@
+package main
+
+import (
+	"fmt"
+	"log"
+	"net/http"
+)
+
+func upload(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("method:", r.Method)
+	if r.Method == "POST" {
+		value := r.FormValue("key")
+
+		fmt.Fprintf(w, value)
+	} else {
+		fmt.Fprintf(w, "Invalid HTTP method")
+	}
+}
+
+func main() {
+	http.HandleFunc("/upload", upload)
+	err := http.ListenAndServe(":9090", nil)
+	if err != nil {
+		log.Fatal("ListenAndServe: ", err)
+	}
+}
