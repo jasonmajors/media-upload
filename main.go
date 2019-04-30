@@ -43,11 +43,12 @@ func validateFileType(file multipart.File) bool {
 func Upload(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("method:", r.Method)
 	if r.Method == "POST" {
-		// Check file size isnt too big. TODO Move into its own method. Can return nil
+		// Check file size isnt too big
 		if ok := fileSizeIsOk(w, r); ok != true {
 			fmt.Fprintf(w, "The file's too big man")
+			return
 		}
-		// TODO: move into own method.. return file
+		// Get the file
 		file, handler, err := r.FormFile("uploadFile")
 		if err != nil {
 			fmt.Println("Unable to read file")
@@ -55,6 +56,7 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		defer file.Close()
+		// Check valid mimetype
 		if valid := validateFileType(file); valid != true {
 			fmt.Println("Invalid file type asshole")
 			return
