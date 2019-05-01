@@ -8,6 +8,8 @@ import (
 	"os"
 	"io/ioutil"
 	"mime/multipart"
+
+	"github.com/jasonmajors/utils"
 )
 
 const maxUploadSize = 2 * 1024 * 1024 // 2mb
@@ -62,7 +64,7 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// whatever
-		fmt.Fprintf(w, "%v", handler.Header)
+		utils.Save(w)
 		// ?? This saves the file?
 		f, err := os.OpenFile("./tmp/"+handler.Filename, os.O_WRONLY|os.O_CREATE, 0666)
 		if err == nil {
