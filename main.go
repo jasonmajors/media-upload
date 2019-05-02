@@ -43,7 +43,6 @@ func validateFileType(file multipart.File) bool {
 }
 
 func Upload(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("method:", r.Method)
 	if r.Method == "POST" {
 		// Check file size isnt too big
 		if ok := fileSizeIsOk(w, r); ok != true {
