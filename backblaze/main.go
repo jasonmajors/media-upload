@@ -14,7 +14,7 @@ import (
 
 	"github.com/joho/godotenv"
 )
-
+// TODO: These should be uppercase
 type B2BackBlazeClient struct {
     authorizeUrl string
     loginAuth string
@@ -32,6 +32,10 @@ type UploadUrlResponse struct {
 	AuthorizationToken string `json:"authorizationToken"`
 	BucketId string `json:"bucketId"`
 	UploadUrl string `json:"uploadUrl"`
+}
+
+type UploadedResponse struct {
+	DownloadPath string
 }
 
 // Request our APi information from our account ID and application key
@@ -99,7 +103,7 @@ func (b2 B2BackBlazeClient) getUploadUrl(authResp AuthResponse) UploadUrlRespons
 func (b2 B2BackBlazeClient) uploadFile(
     uploadUrlResp UploadUrlResponse,
     fileBytes []byte,
-    handler *multipart.FileHeader) {
+    handler *multipart.FileHeader) bool {
 
 	req, err := http.NewRequest(
 		http.MethodPost,
@@ -127,7 +131,14 @@ func (b2 B2BackBlazeClient) uploadFile(
 		fmt.Println("uploadFile: Request failed. ", err.Error())
 	}
 	defer resp.Body.Close()
+	// TODO: Check if 200
 	fmt.Println(resp.Status)
+	// If 200!
+	if true {
+		return true
+	}
+	return false
+	// TODO: Return {url: download path + /file/bucket-name/file-name}
 }
 
 func makeHttpRequest(method string, url string, authToken string) (resp *http.Response, err error) {
@@ -161,5 +172,16 @@ func Save(w http.ResponseWriter, fileBytes []byte, handler *multipart.FileHeader
 	}
 	authResp := b2.authorizeAccount()
 	uploadUrlResp := b2.getUploadUrl(authResp)
-	b2.uploadFile(uploadUrlResp, fileBytes, handler)
+	uploaded := b2.uploadFile(uploadUrlResp, fileBytes, handler)
+	if uploaded {
+		uploadedResp := UploadedResponse{"test"}
+
+		js, err := json.Marshal(uploadedResp)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("content-type", "application/json")
+		w.Write(js)
+	}
 }

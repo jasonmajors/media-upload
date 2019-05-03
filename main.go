@@ -69,7 +69,7 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 		// Write this byte array to our temp file
 		// Probably can get rid of this now
 		tempFile.Write(fileBytes)
-		fmt.Fprintf(w, "Uploaded file\n")
+		fmt.Println("Uploaded file\n")
 		// TODO: Could do this before saving it to /tmp or something
 		backblaze.Save(w, fileBytes, handler)
 	} else {
