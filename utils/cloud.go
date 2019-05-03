@@ -8,7 +8,7 @@ import (
 	"io/ioutil"
 	"encoding/json"
 	"bytes"
-	// "mime/multipart"
+	"mime/multipart"
 	"crypto/sha1"
 	// "encoding/base64"
 )
@@ -124,10 +124,7 @@ func sha1CheckSumString(fileBytes []byte) string {
 }
 
 func uploadFile(
-	uploadUrlResp UploadUrlResponse,
-	fileBytes []byte,
-	fileName string,
-	fileSize int64) {
+	uploadUrlResp UploadUrlResponse, fileBytes []byte, handler *multipart.FileHeader) {
 
 	req, err := http.NewRequest(
 		http.MethodPost,
@@ -138,19 +135,11 @@ func uploadFile(
 	fileType := http.DetectContentType(fileBytes)
 	checkSum := sha1CheckSumString(fileBytes)
 
-	fmt.Println(fileType)
-	fmt.Println(uploadUrlResp.AuthorizationToken)
-	fmt.Println(fileName)
-	fmt.Println(strconv.FormatInt(fileSize, 10))
-	fmt.Println(checkSum)
-	// I think this is wrong
-
 	headers := map[string]string{
 		"Authorization": uploadUrlResp.AuthorizationToken,
-		"X-Bz-File-Name": fileName,
+		"X-Bz-File-Name": handler.Filename,
 		"Content-Type": fileType,
-		"Content-Length": strconv.FormatInt(fileSize, 10),
-		// "X-Bz-Content-Sha1": base64.URLEncoding.EncodeToString(checkSum),
+		"Content-Length": strconv.FormatInt(handler.Size, 10),
 		"X-Bz-Content-Sha1": checkSum,
 	}
 	for header, v := range headers {
@@ -163,12 +152,11 @@ func uploadFile(
 		fmt.Println("uploadFile: Request failed. ", err.Error())
 	}
 	defer resp.Body.Close()
-
 	fmt.Println(resp.Status)
 }
 
-func Save(w http.ResponseWriter, fileBytes []byte, fileName string, fileSize int64) {
+func Save(w http.ResponseWriter, fileBytes []byte, handler *multipart.FileHeader) {
 	authResp := authorizeAccount(authorizeUrl)
 	uploadUrlResp := getUploadUrl(authResp)
-	uploadFile(uploadUrlResp, fileBytes, fileName, fileSize)
+	uploadFile(uploadUrlResp, fileBytes, handler)
 }

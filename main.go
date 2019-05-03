@@ -74,7 +74,7 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 		// We did it
 		fmt.Fprintf(w, "Uploaded file\n")
 		// TODO: Could do this before saving it to /tmp or something
-		utils.Save(w, fileBytes, handler.Filename, handler.Size)
+		utils.Save(w, fileBytes, handler)
 	} else {
 		fmt.Fprintf(w, "Method not allowed")
 	}
