@@ -2,10 +2,14 @@ package utils
 
 import (
 	"fmt"
+	"strconv"
 	"net/http"
 	"io/ioutil"
 	"encoding/json"
 	"bytes"
+	"mime/multipart"
+	"crypto/sha1"
+	"encoding/base64"
 )
 
 const authorizeUrl = "https://api.backblazeb2.com/b2api/v2/b2_authorize_account"
@@ -47,6 +51,8 @@ func makeHttpRequest(method string, url string, authToken string) (resp *http.Re
 	return client.Do(req)
 }
 
+// Request our APi information from our account ID and application key
+// This will give us the API URL, the token for authenticating, and our download URL
 func authorizeAccount(url string) AuthResponse {
 	resp, err := makeHttpRequest(http.MethodGet, url, loginToken)
 	if err != nil {
@@ -56,15 +62,14 @@ func authorizeAccount(url string) AuthResponse {
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println("authorizeAccount: couldnt read the body. ", err.Error())
+		fmt.Println("authorizeAccount: Couldn't read the body. ", err.Error())
 	}
 
 	var result AuthResponse
 	jsonErr := json.Unmarshal(body, &result)
 	if jsonErr != nil {
-		fmt.Println("authorizeAccount: couldnt unmarshal? ", jsonErr.Error())
+		fmt.Println("authorizeAccount: Couldn't unmarshal? ", jsonErr.Error())
 	}
-	fmt.Println(result.ApiUrl)
 
 	return result
 	// Make a json response from our Foo struct
@@ -77,7 +82,8 @@ func authorizeAccount(url string) AuthResponse {
 }
 
 func getUploadUrl(authResp AuthResponse) UploadUrlResponse {
-	var jsonStr = []byte(`{"bucketId":"eb6196bb4672771d66a0001f"}`)
+	// Make the JSON
+	var jsonStr = []byte(fmt.Sprintf(`{"bucketId":"%s"}`, bucketId))
 	// Build the POST request
 	req, _ := http.NewRequest(
 		http.MethodPost,
@@ -85,7 +91,7 @@ func getUploadUrl(authResp AuthResponse) UploadUrlResponse {
 		bytes.NewBuffer(jsonStr))
 	// Set the auth token we received
 	req.Header.Set("Authorization", authResp.AuthorizationToken)
-
+	// THIS could be a sendRequest method
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -103,12 +109,70 @@ func getUploadUrl(authResp AuthResponse) UploadUrlResponse {
 	if jsonErr != nil {
 		fmt.Println("getUploadUrl: Couldn't unmarshal?", jsonErr.Error())
 	}
-	fmt.Println(result.AuthorizationToken)
 
 	return result
 }
 
-func Save(w http.ResponseWriter) {
+func makeSha1Hash(fileBytes []byte) string {
+	hasher := sha1.New()
+	hasher.Write(fileBytes)
+	checkSum := hasher.Sum(nil)
+
+	return base64.URLEncoding.EncodeToString(checkSum)
+}
+
+func uploadFile(
+	uploadUrlResp UploadUrlResponse,
+	file multipart.File,
+	fileName string,
+	fileSize int64) {
+
+	req, err := http.NewRequest(
+		http.MethodPost,
+		uploadUrlResp.UploadUrl,
+		file,
+	)
+
+	fileBytes, err := ioutil.ReadAll(file)
+	if err != nil {
+		fmt.Println("Unable to read file")
+	}
+	fileType := http.DetectContentType(fileBytes)
+	// how the fuckks is this text/plain
+	fmt.Println(fileType)
+	// log out the problems... getting a 400
+	fmt.Println(uploadUrlResp.AuthorizationToken)
+	fmt.Println(fileName)
+
+	fmt.Println(strconv.FormatInt(fileSize, 10))
+	// I think this is wrong
+	hash := makeSha1Hash(fileBytes)
+	fmt.Println(hash)
+
+	headers := map[string]string{
+		"Authorization": uploadUrlResp.AuthorizationToken,
+		"X-Bz-File-Name": fileName,
+		"Content-Type": "fileType",
+		"Content-Length": strconv.FormatInt(fileSize, 10),
+		// "X-Bz-Content-Sha1": base64.URLEncoding.EncodeToString(checkSum),
+		"X-Bz-Content-Sha1": hash,
+	}
+	for header, v := range headers {
+		req.Header.Set(header, v)
+	}
+	// SEND REQUEST METHOD
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("uploadFile: Request failed. ", err.Error())
+	}
+	defer resp.Body.Close()
+
+	fmt.Println(resp.Status)
+}
+
+func Save(w http.ResponseWriter, file multipart.File, fileName string, fileSize int64) {
 	authResp := authorizeAccount(authorizeUrl)
-	getUploadUrl(authResp)
+	uploadUrlResp := getUploadUrl(authResp)
+	uploadFile(uploadUrlResp, file, fileName, fileSize)
 }

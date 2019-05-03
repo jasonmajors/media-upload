@@ -63,7 +63,7 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// whatever
-		utils.Save(w)
+		// utils.Save(w, file, handler.Filename, handler.Size)
 		// ?? This saves the file?
 		f, err := os.OpenFile("./tmp/"+handler.Filename, os.O_WRONLY|os.O_CREATE, 0666)
 		if err == nil {
@@ -78,6 +78,7 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 		defer f.Close()
 		// Saving the file to the filepath? Seems to work without this...
 		io.Copy(f, file)
+		utils.Save(w, file, handler.Filename, handler.Size)
 	} else {
 		fmt.Fprintf(w, "Method not allowed")
 	}
