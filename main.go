@@ -60,17 +60,7 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 			fmt.Println("Upload: Invalid file type")
 			return
 		}
-		// Create a temp file in /tmp
-		tempFile, err := ioutil.TempFile("./tmp", "upload-*.png")
-		if err != nil {
-			fmt.Println(err)
-		}
-		defer tempFile.Close()
-		// Write this byte array to our temp file
-		// Probably can get rid of this now
-		tempFile.Write(fileBytes)
-		fmt.Println("Uploaded file\n")
-		// TODO: Could do this before saving it to /tmp or something
+		// To the cloud
 		backblaze.Save(w, fileBytes, handler)
 	} else {
 		fmt.Fprintf(w, "Method not allowed")
