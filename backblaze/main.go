@@ -19,7 +19,8 @@ type B2BackBlazeClient struct {
     authorizeUrl string
     loginAuth string
     getUploadPath string
-    bucketId string
+	bucketId string
+	bucketName string
 }
 
 type AuthResponse struct {
@@ -35,7 +36,7 @@ type UploadUrlResponse struct {
 }
 
 type UploadedResponse struct {
-	downloadUrl string `json:"downloadUrl,omitempty"`
+	DownloadUrl string `json:"downloadUrl,omitempty"`
 }
 
 // Request our APi information from our account ID and application key
@@ -154,7 +155,6 @@ func sha1CheckSumString(fileBytes []byte) string {
 	return hashString
 }
 
-// TODO: Make a struct for this to live on with a CloudClient interface enforcing the Save func
 func Save(w http.ResponseWriter, fileBytes []byte, handler *multipart.FileHeader) {
 	// Set env variables from our .env file
 	err := godotenv.Load()
@@ -162,17 +162,19 @@ func Save(w http.ResponseWriter, fileBytes []byte, handler *multipart.FileHeader
 	  log.Fatal("Error loading .env file")
 	}
 	b2 := B2BackBlazeClient{
-		os.Getenv("AUTHORIZE_URL"), 
-		os.Getenv("LOGIN_AUTH"), 
-		os.Getenv("GET_UPLOAD_PATH"), 
-		os.Getenv("BUCKET_ID"),
+		os.Getenv("B2_AUTHORIZE_URL"), 
+		os.Getenv("B2_LOGIN_AUTH"), 
+		os.Getenv("B2_GET_UPLOAD_PATH"), 
+		os.Getenv("B2_BUCKET_ID"),
+		os.Getenv("B2_BUCKET_NAME"),
 	}
 	authResp := b2.authorizeAccount()
 	uploadUrlResp := b2.getUploadUrl(authResp)
 	uploaded := b2.uploadFile(uploadUrlResp, fileBytes, handler)
+	
 	if uploaded {
 		// TODO: Dynamically load bucket name; could live in .env or fetch it from BUCKET_ID
-		downloadUrl := authResp.DownloadUrl + "/file/knurling-images/" + handler.Filename
+		downloadUrl := authResp.DownloadUrl + "/file/" + b2.bucketName + "/" + handler.Filename
 		uploadedResp := UploadedResponse{downloadUrl}
 		js, err := json.Marshal(uploadedResp)
 		if err != nil {
