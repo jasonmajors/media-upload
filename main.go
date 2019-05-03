@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
-	"io"
+	// "io"
 	"log"
 	"net/http"
-	"os"
+	// "os"
 	"io/ioutil"
-	"mime/multipart"
+	// "mime/multipart"
 
 	"github.com/jasonmajors/utils"
 )
@@ -22,12 +22,7 @@ func fileSizeIsOk(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-func validateFileType(file multipart.File) bool {
-	fileBytes, err := ioutil.ReadAll(file)
-	if err != nil {
-		fmt.Println("Unable to read file")
-	}
-	fileType := http.DetectContentType(fileBytes)
+func validateFileType(fileType string) bool {
 	var valid bool
 	// A case for all valid mimetypes
 	switch fileType {
@@ -52,33 +47,34 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 		// Get the file
 		file, handler, err := r.FormFile("uploadFile")
 		if err != nil {
-			fmt.Println("Unable to read file")
-			fmt.Println(err)
+			fmt.Println("Unable to read file", err)
 			return
 		}
 		defer file.Close()
-		// Check valid mimetype
-		if valid := validateFileType(file); valid != true {
-			fmt.Println("Invalid file type asshole")
-			return
-		}
-		// whatever
-		// utils.Save(w, file, handler.Filename, handler.Size)
-		// ?? This saves the file?
-		f, err := os.OpenFile("./tmp/"+handler.Filename, os.O_WRONLY|os.O_CREATE, 0666)
-		if err == nil {
-			// WOOOOOOOO
-			fmt.Println("WE FUCKING DID IT WE'RE A GO DEV")
-		} else {
-			// Shit
-			fmt.Println("uh oh")
+		// Read all of the contents of our file into a byte array
+		fileBytes, err := ioutil.ReadAll(file)
+		if err != nil {
 			fmt.Println(err)
+		}
+		// Get filetype
+		fileType := http.DetectContentType(fileBytes)
+		// Check valid mimetype
+		if valid := validateFileType(fileType); valid != true {
+			fmt.Println("Upload: Invalid file type")
 			return
 		}
-		defer f.Close()
-		// Saving the file to the filepath? Seems to work without this...
-		io.Copy(f, file)
-		utils.Save(w, file, handler.Filename, handler.Size)
+		// Create a temp file in /tmp
+		tempFile, err := ioutil.TempFile("./tmp", "upload-*.png")
+		if err != nil {
+			fmt.Println(err)
+		}
+		defer tempFile.Close()
+		// Write this byte array to our temp file
+		tempFile.Write(fileBytes)
+		// We did it
+		fmt.Fprintf(w, "Uploaded file\n")
+		// TODO: Could do this before saving it to /tmp or something
+		utils.Save(w, fileBytes, handler.Filename, handler.Size)
 	} else {
 		fmt.Fprintf(w, "Method not allowed")
 	}

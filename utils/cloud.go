@@ -2,14 +2,15 @@ package utils
 
 import (
 	"fmt"
+	// "os"
 	"strconv"
 	"net/http"
 	"io/ioutil"
 	"encoding/json"
 	"bytes"
-	"mime/multipart"
+	// "mime/multipart"
 	"crypto/sha1"
-	"encoding/base64"
+	// "encoding/base64"
 )
 
 const authorizeUrl = "https://api.backblazeb2.com/b2api/v2/b2_authorize_account"
@@ -113,49 +114,44 @@ func getUploadUrl(authResp AuthResponse) UploadUrlResponse {
 	return result
 }
 
-func makeSha1Hash(fileBytes []byte) string {
+func sha1CheckSumString(fileBytes []byte) string {
 	hasher := sha1.New()
 	hasher.Write(fileBytes)
 	checkSum := hasher.Sum(nil)
+	hashString := fmt.Sprintf("%x", checkSum)
 
-	return base64.URLEncoding.EncodeToString(checkSum)
+	return hashString
 }
 
 func uploadFile(
 	uploadUrlResp UploadUrlResponse,
-	file multipart.File,
+	fileBytes []byte,
 	fileName string,
 	fileSize int64) {
 
 	req, err := http.NewRequest(
 		http.MethodPost,
 		uploadUrlResp.UploadUrl,
-		file,
+		bytes.NewReader(fileBytes),
 	)
 
-	fileBytes, err := ioutil.ReadAll(file)
-	if err != nil {
-		fmt.Println("Unable to read file")
-	}
 	fileType := http.DetectContentType(fileBytes)
-	// how the fuckks is this text/plain
+	checkSum := sha1CheckSumString(fileBytes)
+
 	fmt.Println(fileType)
-	// log out the problems... getting a 400
 	fmt.Println(uploadUrlResp.AuthorizationToken)
 	fmt.Println(fileName)
-
 	fmt.Println(strconv.FormatInt(fileSize, 10))
+	fmt.Println(checkSum)
 	// I think this is wrong
-	hash := makeSha1Hash(fileBytes)
-	fmt.Println(hash)
 
 	headers := map[string]string{
 		"Authorization": uploadUrlResp.AuthorizationToken,
 		"X-Bz-File-Name": fileName,
-		"Content-Type": "fileType",
+		"Content-Type": fileType,
 		"Content-Length": strconv.FormatInt(fileSize, 10),
 		// "X-Bz-Content-Sha1": base64.URLEncoding.EncodeToString(checkSum),
-		"X-Bz-Content-Sha1": hash,
+		"X-Bz-Content-Sha1": checkSum,
 	}
 	for header, v := range headers {
 		req.Header.Set(header, v)
@@ -171,8 +167,8 @@ func uploadFile(
 	fmt.Println(resp.Status)
 }
 
-func Save(w http.ResponseWriter, file multipart.File, fileName string, fileSize int64) {
+func Save(w http.ResponseWriter, fileBytes []byte, fileName string, fileSize int64) {
 	authResp := authorizeAccount(authorizeUrl)
 	uploadUrlResp := getUploadUrl(authResp)
-	uploadFile(uploadUrlResp, file, fileName, fileSize)
+	uploadFile(uploadUrlResp, fileBytes, fileName, fileSize)
 }
