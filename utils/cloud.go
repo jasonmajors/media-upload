@@ -20,18 +20,6 @@ const loginToken = "Basic YjE2YjYyN2Q2MDBmOjAwMTk5MjQ1NTgxODEyMmJiNTQ3MTY2MWRkZj
 const getUploadPath = "/b2api/v2/b2_get_upload_url"
 const bucketId = "eb6196bb4672771d66a0001f"
 
-type SaveToCloudStorage interface {
-	Save()
-}
-
-type CloudStorage struct {
-	service string
-}
-
-func (client CloudStorage) SaveFile() {
-
-}
-
 type AuthResponse struct {
 	ApiUrl string `json:"apiUrl"`
 	AuthorizationToken string `json:"authorizationToken"`
