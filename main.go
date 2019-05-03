@@ -2,14 +2,11 @@ package main
 
 import (
 	"fmt"
-	// "io"
 	"log"
 	"net/http"
-	// "os"
 	"io/ioutil"
-	// "mime/multipart"
 
-	"github.com/jasonmajors/utils"
+	"github.com/jasonmajors/backblaze"
 )
 
 const maxUploadSize = 2 * 1024 * 1024 // 2mb
@@ -70,11 +67,11 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 		}
 		defer tempFile.Close()
 		// Write this byte array to our temp file
+		// Probably can get rid of this now
 		tempFile.Write(fileBytes)
-		// We did it
 		fmt.Fprintf(w, "Uploaded file\n")
 		// TODO: Could do this before saving it to /tmp or something
-		utils.Save(w, fileBytes, handler)
+		backblaze.Save(w, fileBytes, handler)
 	} else {
 		fmt.Fprintf(w, "Method not allowed")
 	}

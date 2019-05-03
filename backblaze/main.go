@@ -1,8 +1,9 @@
-package utils
+package backblaze
 
 import (
+	"os"
+	"log"
 	"fmt"
-	// "os"
 	"strconv"
 	"net/http"
 	"io/ioutil"
@@ -10,19 +11,13 @@ import (
 	"bytes"
 	"mime/multipart"
 	"crypto/sha1"
-	// "encoding/base64"
-)
 
-const authorizeUrl = "https://api.backblazeb2.com/b2api/v2/b2_authorize_account"
-// TODO: This shouldnt be here
-// Store account Id and application key in env and generate the token via base64 encode
-const loginToken = "Basic YjE2YjYyN2Q2MDBmOjAwMTk5MjQ1NTgxODEyMmJiNTQ3MTY2MWRkZjE3OGFmNGU5ZTljMDNkOQ=="
-const getUploadPath = "/b2api/v2/b2_get_upload_url"
-const bucketId = "eb6196bb4672771d66a0001f"
+	"github.com/joho/godotenv"
+)
 
 type B2BackBlazeClient struct {
     authorizeUrl string
-    loginToken string
+    loginAuth string
     getUploadPath string
     bucketId string
 }
@@ -39,18 +34,10 @@ type UploadUrlResponse struct {
 	UploadUrl string `json:"uploadUrl"`
 }
 
-func makeHttpRequest(method string, url string, authToken string) (resp *http.Response, err error) {
-	client := &http.Client{}
-	req, _ := http.NewRequest(method, url, nil)
-	req.Header.Set("Authorization", authToken)
-
-	return client.Do(req)
-}
-
 // Request our APi information from our account ID and application key
 // This will give us the API URL, the token for authenticating, and our download URL
 func (b2 B2BackBlazeClient) authorizeAccount() AuthResponse {
-	resp, err := makeHttpRequest(http.MethodGet, b2.authorizeUrl, b2.loginToken)
+	resp, err := makeHttpRequest(http.MethodGet, b2.authorizeUrl, b2.loginAuth)
 	if err != nil {
 		fmt.Println("authorizeAccount: The request failed.")
 	}
@@ -77,13 +64,13 @@ func (b2 B2BackBlazeClient) authorizeAccount() AuthResponse {
 	// w.Write(jsonResp)
 }
 
-func getUploadUrl(authResp AuthResponse) UploadUrlResponse {
+func (b2 B2BackBlazeClient) getUploadUrl(authResp AuthResponse) UploadUrlResponse {
 	// Make the JSON
-	var jsonStr = []byte(fmt.Sprintf(`{"bucketId":"%s"}`, bucketId))
+	var jsonStr = []byte(fmt.Sprintf(`{"bucketId":"%s"}`, b2.bucketId))
 	// Build the POST request
 	req, _ := http.NewRequest(
 		http.MethodPost,
-		authResp.ApiUrl + getUploadPath,
+		authResp.ApiUrl + b2.getUploadPath,
 		bytes.NewBuffer(jsonStr))
 	// Set the auth token we received
 	req.Header.Set("Authorization", authResp.AuthorizationToken)
@@ -109,17 +96,10 @@ func getUploadUrl(authResp AuthResponse) UploadUrlResponse {
 	return result
 }
 
-func sha1CheckSumString(fileBytes []byte) string {
-	hasher := sha1.New()
-	hasher.Write(fileBytes)
-	checkSum := hasher.Sum(nil)
-	hashString := fmt.Sprintf("%x", checkSum)
-
-	return hashString
-}
-
-func uploadFile(
-	uploadUrlResp UploadUrlResponse, fileBytes []byte, handler *multipart.FileHeader) {
+func (b2 B2BackBlazeClient) uploadFile(
+    uploadUrlResp UploadUrlResponse,
+    fileBytes []byte,
+    handler *multipart.FileHeader) {
 
 	req, err := http.NewRequest(
 		http.MethodPost,
@@ -150,9 +130,36 @@ func uploadFile(
 	fmt.Println(resp.Status)
 }
 
+func makeHttpRequest(method string, url string, authToken string) (resp *http.Response, err error) {
+	client := &http.Client{}
+	req, _ := http.NewRequest(method, url, nil)
+	req.Header.Set("Authorization", authToken)
+
+	return client.Do(req)
+}
+
+func sha1CheckSumString(fileBytes []byte) string {
+	hasher := sha1.New()
+	hasher.Write(fileBytes)
+	checkSum := hasher.Sum(nil)
+	hashString := fmt.Sprintf("%x", checkSum)
+
+	return hashString
+}
+
 func Save(w http.ResponseWriter, fileBytes []byte, handler *multipart.FileHeader) {
-    b2 := B2BackBlazeClient{authorizeUrl, loginToken, getUploadPath, bucketId}
+	// Set env variables from our .env file
+	err := godotenv.Load()
+	if err != nil {
+	  log.Fatal("Error loading .env file")
+	}
+	b2 := B2BackBlazeClient{
+		os.Getenv("AUTHORIZE_URL"), 
+		os.Getenv("LOGIN_AUTH"), 
+		os.Getenv("GET_UPLOAD_PATH"), 
+		os.Getenv("BUCKET_ID"),
+	}
 	authResp := b2.authorizeAccount()
-	uploadUrlResp := getUploadUrl(authResp)
-	uploadFile(uploadUrlResp, fileBytes, handler)
+	uploadUrlResp := b2.getUploadUrl(authResp)
+	b2.uploadFile(uploadUrlResp, fileBytes, handler)
 }
