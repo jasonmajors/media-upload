@@ -20,6 +20,13 @@ const loginToken = "Basic YjE2YjYyN2Q2MDBmOjAwMTk5MjQ1NTgxODEyMmJiNTQ3MTY2MWRkZj
 const getUploadPath = "/b2api/v2/b2_get_upload_url"
 const bucketId = "eb6196bb4672771d66a0001f"
 
+type B2BackBlazeClient struct {
+    authorizeUrl string
+    loginToken string
+    getUploadPath string
+    bucketId string
+}
+
 type AuthResponse struct {
 	ApiUrl string `json:"apiUrl"`
 	AuthorizationToken string `json:"authorizationToken"`
@@ -42,8 +49,8 @@ func makeHttpRequest(method string, url string, authToken string) (resp *http.Re
 
 // Request our APi information from our account ID and application key
 // This will give us the API URL, the token for authenticating, and our download URL
-func authorizeAccount(url string) AuthResponse {
-	resp, err := makeHttpRequest(http.MethodGet, url, loginToken)
+func (b2 B2BackBlazeClient) authorizeAccount() AuthResponse {
+	resp, err := makeHttpRequest(http.MethodGet, b2.authorizeUrl, b2.loginToken)
 	if err != nil {
 		fmt.Println("authorizeAccount: The request failed.")
 	}
@@ -144,7 +151,8 @@ func uploadFile(
 }
 
 func Save(w http.ResponseWriter, fileBytes []byte, handler *multipart.FileHeader) {
-	authResp := authorizeAccount(authorizeUrl)
+    b2 := B2BackBlazeClient{authorizeUrl, loginToken, getUploadPath, bucketId}
+	authResp := b2.authorizeAccount()
 	uploadUrlResp := getUploadUrl(authResp)
 	uploadFile(uploadUrlResp, fileBytes, handler)
 }
