@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"io/ioutil"
 
-	"github.com/jasonmajors/backblaze"
+	"github.com/jasonmajors/media-upload/backblaze"
 )
 
 const maxUploadSize = 2 * 1024 * 1024 // 2mb
