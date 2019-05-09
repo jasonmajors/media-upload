@@ -12,11 +12,6 @@ import (
 
 const maxUploadSize = 2 * 1024 * 1024 // 2mb
 
-type UploadFile struct {
-	Bytes   []byte
-	Handler *multipart.FileHeader
-}
-
 func fileSizeIsOk(w http.ResponseWriter, r *http.Request) bool {
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
 	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
@@ -61,10 +56,10 @@ func getBytes(file multipart.File) []byte {
 	return fileBytes
 }
 
-func getFileBytes(r *http.Request, key string) <-chan UploadFile {
+func getFileBytes(r *http.Request, key string) <-chan backblaze.UploadFile {
 	// need to return the handler...
 	file, handler := getFileFromForm(r, key)
-	bytesOut := make(chan UploadFile)
+	bytesOut := make(chan backblaze.UploadFile)
 
 	defer file.Close()
 
@@ -77,7 +72,7 @@ func getFileBytes(r *http.Request, key string) <-chan UploadFile {
 		if valid := validateFileType(fileType); valid != true {
 			panic("getFileBytes: Invalid file type")
 		}
-		uploadFile := new(UploadFile)
+		uploadFile := new(backblaze.UploadFile)
 		uploadFile.Handler = handler
 		uploadFile.Bytes = fileBytes
 
@@ -96,10 +91,14 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "The file's too big man")
 			return
 		}
-		bytesOut := getFileBytes(r, "image")
-		uploadFile := <-bytesOut
+		imageBytes := getFileBytes(r, "image")
+		audioBytes := getFileBytes(r, "audio")
 
-		backblaze.Save(w, uploadFile.Bytes, uploadFile.Handler)
+		imageFileBytes := <-imageBytes
+		audioFileBytes := <-audioBytes
+
+		payload := []backblaze.UploadFile{imageFileBytes, audioFileBytes}
+		backblaze.Save(w, payload)
 	} else {
 		fmt.Fprintf(w, "Method not allowed")
 	}
