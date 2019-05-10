@@ -11,7 +11,7 @@ import (
 	"github.com/jasonmajors/media-upload/backblaze"
 )
 
-const maxUploadSize = 2 * 1024 * 1024 // 2mb
+const maxUploadSize = 2 * 1024 * 1024 * 5 // 10mb
 
 func fileSizeIsOk(w http.ResponseWriter, r *http.Request) bool {
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
@@ -89,6 +89,7 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		// Check file size isnt too big
 		if ok := fileSizeIsOk(w, r); ok != true {
+			log.Println("File too big")
 			fmt.Fprintf(w, "The file's too big man")
 			return
 		}

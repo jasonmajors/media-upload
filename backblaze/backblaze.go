@@ -219,20 +219,11 @@ func Save(payloads []UploadFile) map[string]UploadResponse {
 			}
 			downloadUrl := b2.makeDownloadUrl(authResp, uploadMeta.FileName)
 			responses[uploadMeta.FileName] = UploadResponse{downloadUrl, uploadMeta}
+		} else {
+			// wtf
+			bodyBytes, _ := ioutil.ReadAll(resp.Body)
+			log.Fatal(string(bodyBytes))
 		}
 	}
 	return responses
-	// Return a map[fileName] = new struct with response and download URLm
-	// and error which can be nil
-
-	// if uploaded {
-	// downloadUrl := authResp.DownloadUrl + "/file/" + b2.bucketName + "/" + payload[0].Handler.Filename
-	// uploadedResp := UploadMeta{downloadUrl}
-	// js, err := json.Marshal(uploadedResp)
-	// if err != nil {
-	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-	// 	return
-	// }
-	// w.Header().Set("content-type", "application/json")
-	// w.Write(js)
 }
