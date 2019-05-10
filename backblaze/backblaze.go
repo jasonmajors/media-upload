@@ -96,7 +96,7 @@ func (b2 B2BackBlazeClient) getUploadUrl(authResp AuthResponse) UploadUrlRespons
 	var result UploadUrlResponse
 	jsonErr := json.Unmarshal(body, &result)
 	if jsonErr != nil {
-		fmt.Println("getUploadUrl: Couldn't unmarshal?", jsonErr.Error())
+		log.Println("getUploadUrl: Couldn't unmarshal?", jsonErr.Error())
 	}
 
 	return result
@@ -106,13 +106,14 @@ func (b2 B2BackBlazeClient) getUploadUrl(authResp AuthResponse) UploadUrlRespons
 // We'll need URL and authorization data from the UploadUrlResponse,
 // the bytes we're uploading, and the file name and size from the file header.
 func (b2 B2BackBlazeClient) uploadFile(
-	uploadUrlResp UploadUrlResponse,
+	authResp AuthResponse,
 	fileBytes []byte,
 	handler *multipart.FileHeader) <-chan string {
 
-	fmt.Println("Uploading...")
+	log.Println("Uploading...")
 	requestChan := make(chan string)
 	go func() {
+		uploadUrlResp := b2.getUploadUrl(authResp)
 		req, err := http.NewRequest(
 			http.MethodPost,
 			uploadUrlResp.UploadUrl,
@@ -139,7 +140,13 @@ func (b2 B2BackBlazeClient) uploadFile(
 			fmt.Println("uploadFile: Request failed. ", err.Error())
 		}
 		defer resp.Body.Close()
-		fmt.Println(resp.Status)
+
+		log.Println("Upload file resp status: ", resp.Status)
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Println(string(bodyBytes))
 		requestChan <- resp.Status
 
 		close(requestChan)
@@ -178,23 +185,26 @@ func Save(w http.ResponseWriter, payloads []UploadFile) {
 		os.Getenv("B2_BUCKET_NAME"),
 	}
 	authResp := b2.authorizeAccount()
-	uploadUrlResp := b2.getUploadUrl(authResp)
+	// TODO: This has to run in parrallel for each file also
+	// Should call inside uploadFile
+	// uploadUrlResp := b2.getUploadUrl(authResp)
 
 	var chans []<-chan string
 
 	for _, payload := range payloads {
-		fmt.Println(payload.Handler.Filename)
-		chans = append(chans, b2.uploadFile(uploadUrlResp, payload.Bytes, payload.Handler))
+		chans = append(chans, b2.uploadFile(authResp, payload.Bytes, payload.Handler))
 	}
 	for _, resp := range chans {
 		if status := <-resp; status != "200" {
+			log.Println("Checking status :", status)
 			// TODO: These are going through but im still getting a 400?
-			panic(fmt.Sprintf("Bad response: %s", status))
+			// First upload not working?
+			// panic(fmt.Sprintf("Bad response: %s", status))
 			// http.Error(w, err.Error(), http.StatusInternalServerError)
 			// return
 		}
 	}
-	fmt.Println("all done")
+	log.Println("all done")
 
 	// if uploaded {
 	// downloadUrl := authResp.DownloadUrl + "/file/" + b2.bucketName + "/" + payload[0].Handler.Filename
