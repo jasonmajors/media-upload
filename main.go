@@ -64,7 +64,7 @@ func getFileBytes(r *http.Request, key string) <-chan backblaze.UploadFile {
 	defer file.Close()
 
 	go func(handler *multipart.FileHeader) {
-		fmt.Println("gettin dem bytes")
+		log.Println("Detecting and validating filetype for: ", handler.Filename)
 
 		fileBytes := getBytes(file)
 		fileType := http.DetectContentType(fileBytes)
@@ -98,7 +98,8 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 		audioFileBytes := <-audioBytes
 
 		payload := []backblaze.UploadFile{imageFileBytes, audioFileBytes}
-		backblaze.Save(w, payload)
+		responses := backblaze.Save(w, payload)
+		fmt.Println(responses["parentdaze-logo-small.png"].DownloadUrl)
 	} else {
 		fmt.Fprintf(w, "Method not allowed")
 	}

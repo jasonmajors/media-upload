@@ -36,9 +36,21 @@ type UploadUrlResponse struct {
 	UploadUrl          string `json:"uploadUrl"`
 }
 
+type UploadMeta struct {
+	AccountId       string      `json:"accountId"`
+	BucketId        string      `json:"bucketId"`
+	ContentLength   int         `json:"contentLength"`
+	ContentSha1     string      `json:"contentSha1"`
+	ContentType     string      `json:"contentType"`
+	FileId          string      `json:"fileId"`
+	FileInfo        interface{} `json:"fileInfo"`
+	FileName        string      `json:"fileName"`
+	UploadTimeStamp int         `json:"uploadTimestamp"`
+}
+
 type UploadResponse struct {
-	ImageDownloadUrl string `json:"imageDownloadUrl,omitempty"`
-	AudioDownloadUrl string `json:"audioDownloadUrl,omitempty"`
+	DownloadUrl string
+	ApiResponse UploadMeta
 }
 
 type UploadFile struct {
@@ -108,11 +120,11 @@ func (b2 B2BackBlazeClient) getUploadUrl(authResp AuthResponse) UploadUrlRespons
 func (b2 B2BackBlazeClient) uploadFile(
 	authResp AuthResponse,
 	fileBytes []byte,
-	handler *multipart.FileHeader) <-chan string {
+	handler *multipart.FileHeader) <-chan http.Response {
 
-	log.Println("Uploading...")
-	requestChan := make(chan string)
+	requestChan := make(chan http.Response)
 	go func() {
+		log.Println("Uploading: ", handler.Filename)
 		uploadUrlResp := b2.getUploadUrl(authResp)
 		req, err := http.NewRequest(
 			http.MethodPost,
@@ -139,19 +151,23 @@ func (b2 B2BackBlazeClient) uploadFile(
 		if err != nil {
 			fmt.Println("uploadFile: Request failed. ", err.Error())
 		}
-		defer resp.Body.Close()
+		//defer resp.Body.Close()
 
 		log.Println("Upload file resp status: ", resp.Status)
-		bodyBytes, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			log.Fatal(err)
-		}
-		log.Println(string(bodyBytes))
-		requestChan <- resp.Status
+		// bodyBytes, err := ioutil.ReadAll(resp.Body)
+		// if err != nil {
+		// 	log.Fatal(err)
+		// }
+		// log.Println(string(bodyBytes))
+		requestChan <- *resp
 
 		close(requestChan)
 	}()
 	return requestChan
+}
+
+func (b2 B2BackBlazeClient) makeDownloadUrl(authResp AuthResponse, fileName string) string {
+	return authResp.DownloadUrl + "/file/" + b2.bucketName + "/" + fileName
 }
 
 func makeHttpRequest(method string, url string, authToken string) (resp *http.Response, err error) {
@@ -171,7 +187,7 @@ func sha1CheckSumString(fileBytes []byte) string {
 	return hashString
 }
 
-func Save(w http.ResponseWriter, payloads []UploadFile) {
+func Save(w http.ResponseWriter, payloads []UploadFile) map[string]UploadResponse {
 	// Set env variables from our .env file
 	err := godotenv.Load()
 	if err != nil {
@@ -185,30 +201,39 @@ func Save(w http.ResponseWriter, payloads []UploadFile) {
 		os.Getenv("B2_BUCKET_NAME"),
 	}
 	authResp := b2.authorizeAccount()
-	// TODO: This has to run in parrallel for each file also
-	// Should call inside uploadFile
-	// uploadUrlResp := b2.getUploadUrl(authResp)
-
-	var chans []<-chan string
-
+	// Initialize a slice of http.Response channels
+	var chans []<-chan http.Response
+	// Intialize a slice of UploadResponse
+	responses := make(map[string]UploadResponse)
+	// Iterate over our request payloads and append the response channels into our channel slice.
+	// This allows our requests to run concurrently while we're able to store the
+	// response from each request before continuing
 	for _, payload := range payloads {
 		chans = append(chans, b2.uploadFile(authResp, payload.Bytes, payload.Handler))
 	}
-	for _, resp := range chans {
-		if status := <-resp; status != "200" {
-			log.Println("Checking status :", status)
-			// TODO: These are going through but im still getting a 400?
-			// First upload not working?
-			// panic(fmt.Sprintf("Bad response: %s", status))
-			// http.Error(w, err.Error(), http.StatusInternalServerError)
-			// return
+	for _, response := range chans {
+		if resp := <-response; resp.StatusCode == http.StatusOK {
+			// Create struct with the response and the download URL
+			bodyBytes, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				log.Fatal(err)
+			}
+			uploadMeta := UploadMeta{}
+			if err := json.Unmarshal(bodyBytes, &uploadMeta); err != nil {
+				log.Fatal(err)
+			}
+			downloadUrl := b2.makeDownloadUrl(authResp, uploadMeta.FileName)
+			responses[uploadMeta.FileName] = UploadResponse{downloadUrl, uploadMeta}
 		}
 	}
 	log.Println("all done")
+	return responses
+	// Return a map[fileName] = new struct with response and download URLm
+	// and error which can be nil
 
 	// if uploaded {
 	// downloadUrl := authResp.DownloadUrl + "/file/" + b2.bucketName + "/" + payload[0].Handler.Filename
-	// uploadedResp := UploadResponse{downloadUrl}
+	// uploadedResp := UploadMeta{downloadUrl}
 	// js, err := json.Marshal(uploadedResp)
 	// if err != nil {
 	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
