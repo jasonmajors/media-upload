@@ -152,13 +152,8 @@ func (b2 B2BackBlazeClient) uploadFile(
 			fmt.Println("uploadFile: Request failed. ", err.Error())
 		}
 		//defer resp.Body.Close()
-
 		log.Println("Upload file resp status: ", resp.Status)
-		// bodyBytes, err := ioutil.ReadAll(resp.Body)
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
-		// log.Println(string(bodyBytes))
+
 		requestChan <- *resp
 
 		close(requestChan)
@@ -187,7 +182,7 @@ func sha1CheckSumString(fileBytes []byte) string {
 	return hashString
 }
 
-func Save(w http.ResponseWriter, payloads []UploadFile) map[string]UploadResponse {
+func Save(payloads []UploadFile) map[string]UploadResponse {
 	// Set env variables from our .env file
 	err := godotenv.Load()
 	if err != nil {
@@ -226,7 +221,6 @@ func Save(w http.ResponseWriter, payloads []UploadFile) map[string]UploadRespons
 			responses[uploadMeta.FileName] = UploadResponse{downloadUrl, uploadMeta}
 		}
 	}
-	log.Println("all done")
 	return responses
 	// Return a map[fileName] = new struct with response and download URLm
 	// and error which can be nil

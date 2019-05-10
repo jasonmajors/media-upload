@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -98,8 +99,21 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 		audioFileBytes := <-audioBytes
 
 		payload := []backblaze.UploadFile{imageFileBytes, audioFileBytes}
-		responses := backblaze.Save(w, payload)
-		fmt.Println(responses["parentdaze-logo-small.png"].DownloadUrl)
+		responses := backblaze.Save(payload)
+
+		response := make(map[string]string)
+
+		for _, backblazeResp := range responses {
+			response[backblazeResp.ApiResponse.FileName] = backblazeResp.DownloadUrl
+			log.Println("Download URL: ", backblazeResp.DownloadUrl)
+		}
+		jsonResp, err := json.Marshal(response)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("content-type", "application/json")
+		w.Write(jsonResp)
 	} else {
 		fmt.Fprintf(w, "Method not allowed")
 	}
