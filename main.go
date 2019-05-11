@@ -139,7 +139,7 @@ func jsonErr(w http.ResponseWriter, message string, status int) {
 
 func main() {
 	http.HandleFunc("/upload", Upload)
-	err := http.ListenAndServe(":8080", nil)
+	err := http.ListenAndServe(":80", nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
