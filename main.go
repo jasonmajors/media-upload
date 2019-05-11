@@ -140,6 +140,8 @@ func jsonErr(w http.ResponseWriter, message string, status int) {
 }
 
 func main() {
+	// Read from .env when not in production
+	// In production the env variables will already be set correctly
 	if os.Getenv("APP_ENV") != "production" {
 		envErr := godotenv.Load()
 		if envErr != nil {
