@@ -7,8 +7,10 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
+	"os"
 
 	"github.com/jasonmajors/media-upload/backblaze"
+	"github.com/joho/godotenv"
 )
 
 const maxUploadSize = 2 * 1024 * 1024 * 5 // 10mb
@@ -138,8 +140,13 @@ func jsonErr(w http.ResponseWriter, message string, status int) {
 }
 
 func main() {
+	godotenv.Load()
 	http.HandleFunc("/upload", Upload)
-	err := http.ListenAndServe(":80", nil)
+	port := os.Getenv("PORT")
+	if port == "" {
+		log.Fatal("No port set")
+	}
+	err := http.ListenAndServe(":"+port, nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
