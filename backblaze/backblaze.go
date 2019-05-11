@@ -162,10 +162,13 @@ func (b2 B2BackBlazeClient) uploadFile(
 	return requestChan
 }
 
+// Creates the download URL for the uploaded file
 func (b2 B2BackBlazeClient) makeDownloadUrl(authResp AuthResponse, fileName string) string {
 	return authResp.DownloadUrl + "/file/" + b2.bucketName + "/" + fileName
 }
 
+// Make a simple HTTP request
+// TODO: This doesn't really need to exist, only used one place
 func makeHttpRequest(method string, url string, authToken string) (resp *http.Response, err error) {
 	client := &http.Client{}
 	req, _ := http.NewRequest(method, url, nil)
@@ -174,6 +177,7 @@ func makeHttpRequest(method string, url string, authToken string) (resp *http.Re
 	return client.Do(req)
 }
 
+// Create the SHA1 checksum of a file
 func sha1CheckSumString(fileBytes []byte) string {
 	hasher := sha1.New()
 	hasher.Write(fileBytes)
@@ -183,19 +187,25 @@ func sha1CheckSumString(fileBytes []byte) string {
 	return hashString
 }
 
-func Save(payloads []UploadFile) (map[string]UploadResponse, error) {
-	// Set env variables from our .env file
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
-	b2 := B2BackBlazeClient{
+// Create the b2 client for the upload
+func MakeB2Client() B2BackBlazeClient {
+	return B2BackBlazeClient{
 		os.Getenv("B2_AUTHORIZE_URL"),
 		os.Getenv("B2_LOGIN_AUTH"),
 		os.Getenv("B2_GET_UPLOAD_PATH"),
 		os.Getenv("B2_BUCKET_ID"),
 		os.Getenv("B2_BUCKET_NAME"),
 	}
+}
+
+// Save a file(s) to the backblaze cloud
+func Save(payloads []UploadFile) (map[string]UploadResponse, error) {
+	// Set env variables from our .env file
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+	b2 := MakeB2Client()
 	authResp := b2.authorizeAccount()
 	// Initialize a slice of http.Response channels
 	var chans []<-chan http.Response
@@ -207,6 +217,7 @@ func Save(payloads []UploadFile) (map[string]UploadResponse, error) {
 	for _, payload := range payloads {
 		chans = append(chans, b2.uploadFile(authResp, payload.Bytes, payload.Handler))
 	}
+	// Iterate over our responses and prepare a map of UploadResponse structs
 	for _, response := range chans {
 		if resp := <-response; resp.StatusCode == http.StatusOK {
 			// Create struct with the response and the download URL
@@ -221,11 +232,13 @@ func Save(payloads []UploadFile) (map[string]UploadResponse, error) {
 			downloadUrl := b2.makeDownloadUrl(authResp, uploadMeta.FileName)
 			responses[uploadMeta.FileName] = UploadResponse{downloadUrl, uploadMeta}
 		} else {
+			// Something went wrong...
 			bodyBytes, _ := ioutil.ReadAll(resp.Body)
+			// Log it out for now since I'm not prepared for this
 			log.Println(string(bodyBytes))
-
 			err := errors.New(string(bodyBytes))
 			// Exit function with error
+			// Probably a better way to handle this though
 			return responses, err
 		}
 	}
