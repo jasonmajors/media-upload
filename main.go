@@ -92,7 +92,7 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 
 	if secret := r.URL.Query().Get("token"); secret != os.Getenv("TOKEN") {
 		log.Println("Unauthorized")
-		// jsonErr(w, "Unauthorized", http.StatusUnauthorized)
+		jsonErr(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 	if r.Method == "POST" {
