@@ -140,8 +140,11 @@ func jsonErr(w http.ResponseWriter, message string, status int) {
 
 	errResp := make(map[string]string)
 	errResp["error"] = message
-	jsonErr, _ := json.Marshal(errResp)
-
+	jsonErr, err := json.Marshal(errResp)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	w.Write(jsonErr)
 }
 
