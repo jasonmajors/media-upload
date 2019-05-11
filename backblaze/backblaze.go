@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha1"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -182,7 +183,7 @@ func sha1CheckSumString(fileBytes []byte) string {
 	return hashString
 }
 
-func Save(payloads []UploadFile) map[string]UploadResponse {
+func Save(payloads []UploadFile) (map[string]UploadResponse, error) {
 	// Set env variables from our .env file
 	err := godotenv.Load()
 	if err != nil {
@@ -220,10 +221,14 @@ func Save(payloads []UploadFile) map[string]UploadResponse {
 			downloadUrl := b2.makeDownloadUrl(authResp, uploadMeta.FileName)
 			responses[uploadMeta.FileName] = UploadResponse{downloadUrl, uploadMeta}
 		} else {
-			// wtf
 			bodyBytes, _ := ioutil.ReadAll(resp.Body)
-			log.Fatal(string(bodyBytes))
+			log.Println(string(bodyBytes))
+
+			err := errors.New(string(bodyBytes))
+			// Exit function with error
+			return responses, err
 		}
 	}
-	return responses
+	// Everything went well... probably
+	return responses, nil
 }

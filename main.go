@@ -86,11 +86,12 @@ func getFileBytes(r *http.Request, key string) <-chan backblaze.UploadFile {
 }
 
 func Upload(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("content-type", "application/json")
 	if r.Method == "POST" {
 		// Check file size isnt too big
 		if ok := fileSizeIsOk(w, r); ok != true {
 			log.Println("File too big")
-			fmt.Fprintf(w, "The file's too big man")
+			jsonErr(w, "File too big, man", http.StatusBadRequest)
 			return
 		}
 		imageBytes := getFileBytes(r, "image")
@@ -100,7 +101,11 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 		audioFileBytes := <-audioBytes
 
 		payload := []backblaze.UploadFile{imageFileBytes, audioFileBytes}
-		responses := backblaze.Save(payload)
+		responses, err := backblaze.Save(payload)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 
 		response := make(map[string]string)
 
@@ -113,11 +118,23 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Header().Set("content-type", "application/json")
 		w.Write(jsonResp)
+		return
 	} else {
-		fmt.Fprintf(w, "Method not allowed")
+		log.Println("Method not allowed")
+		jsonErr(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
+}
+
+func jsonErr(w http.ResponseWriter, message string, status int) {
+	w.WriteHeader(status)
+
+	errResp := make(map[string]string)
+	errResp["error"] = message
+	jsonErr, _ := json.Marshal(errResp)
+
+	w.Write(jsonErr)
 }
 
 func main() {
