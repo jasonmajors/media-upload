@@ -8,7 +8,6 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/jasonmajors/media-upload/backblaze"
 	"github.com/joho/godotenv"
@@ -110,12 +109,12 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 		audioFileBytes := <-audioBytes
 
 		payload := []backblaze.UploadFile{imageFileBytes, audioFileBytes}
-		// To the cloud!
 		responses, err := backblaze.Save(payload)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
+
 		response := make(map[string]string)
 
 		for _, backblazeResp := range responses {
@@ -142,7 +141,7 @@ func jsonErr(w http.ResponseWriter, message string, status int) {
 	errResp := make(map[string]string)
 	errResp["error"] = message
 	jsonErr, _ := json.Marshal(errResp)
-	time.Sleep(time.Second)
+
 	w.Write(jsonErr)
 }
 
