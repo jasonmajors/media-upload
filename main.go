@@ -93,7 +93,7 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 	if secret := r.URL.Query().Get("token"); secret != os.Getenv("TOKEN") {
 		log.Println("Unauthorized")
 		jsonErr(w, "Unauthorized", http.StatusUnauthorized)
-		return
+		//return
 	}
 	if r.Method == "POST" {
 		// Check file size isnt too big
