@@ -12,8 +12,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-
-	"github.com/joho/godotenv"
 )
 
 // TODO: These should be uppercase
@@ -200,11 +198,6 @@ func MakeB2Client() B2BackBlazeClient {
 
 // Save a file(s) to the backblaze cloud
 func Save(payloads []UploadFile) (map[string]UploadResponse, error) {
-	// Set env variables from our .env file
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
 	b2 := MakeB2Client()
 	authResp := b2.authorizeAccount()
 	// Initialize a slice of http.Response channels

@@ -140,7 +140,10 @@ func jsonErr(w http.ResponseWriter, message string, status int) {
 }
 
 func main() {
-	godotenv.Load()
+	envErr := godotenv.Load()
+	if envErr != nil {
+		log.Fatal("Error loading .env file")
+	}
 	http.HandleFunc("/upload", Upload)
 	port := os.Getenv("PORT")
 	if port == "" {
