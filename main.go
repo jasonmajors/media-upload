@@ -89,7 +89,7 @@ func getFileBytes(r *http.Request, key string) <-chan backblaze.UploadFile {
 
 func Upload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "application/json")
-
+	// TODO: Separate auth func
 	if secret := r.URL.Query().Get("token"); secret != os.Getenv("TOKEN") {
 		log.Println("Unauthorized")
 		jsonErr(w, "Unauthorized", http.StatusUnauthorized)
@@ -143,6 +143,7 @@ func jsonErr(w http.ResponseWriter, message string, status int) {
 	jsonErr, _ := json.Marshal(errResp)
 
 	w.Write(jsonErr)
+	return
 }
 
 func main() {
@@ -154,11 +155,11 @@ func main() {
 			log.Fatal("Error loading .env file")
 		}
 	}
-	http.HandleFunc("/upload", Upload)
 	port := os.Getenv("PORT")
 	if port == "" {
 		log.Fatal("No port set")
 	}
+	http.HandleFunc("/upload", Upload)
 	err := http.ListenAndServe(":"+port, nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
