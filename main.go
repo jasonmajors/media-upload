@@ -136,6 +136,7 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 }
 
 func jsonErr(w http.ResponseWriter, message string, status int) {
+	log.Println("Making json err response")
 	w.WriteHeader(status)
 
 	errResp := make(map[string]string)
