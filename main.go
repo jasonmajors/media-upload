@@ -89,20 +89,18 @@ func getFileBytes(r *http.Request, key string) <-chan backblaze.UploadFile {
 
 func Upload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "application/json")
-
+	// Check file size isnt too big
+	if ok := fileSizeIsOk(w, r); ok != true {
+		log.Println("File too big")
+		jsonErr(w, "File too big, man", http.StatusBadRequest)
+		return
+	}
 	if secret := r.URL.Query().Get("token"); secret != os.Getenv("TOKEN") {
-		r.ParseMultipartForm(maxUploadSize)
 		log.Println("Unauthorized")
 		jsonErr(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 	if r.Method == "POST" {
-		// Check file size isnt too big
-		if ok := fileSizeIsOk(w, r); ok != true {
-			log.Println("File too big")
-			jsonErr(w, "File too big, man", http.StatusBadRequest)
-			return
-		}
 		imageBytes := getFileBytes(r, "image")
 		audioBytes := getFileBytes(r, "audio")
 
