@@ -91,6 +91,7 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "application/json")
 
 	if secret := r.URL.Query().Get("token"); secret != os.Getenv("TOKEN") {
+		r.ParseMultipartForm(maxUploadSize)
 		log.Println("Unauthorized")
 		jsonErr(w, "Unauthorized", http.StatusUnauthorized)
 		return
