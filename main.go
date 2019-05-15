@@ -11,6 +11,7 @@ import (
 
 	"github.com/jasonmajors/media-upload/backblaze"
 	"github.com/joho/godotenv"
+	"github.com/rs/cors"
 )
 
 const maxUploadSize = 2 * 1024 * 1024 * 5 // 10mb
@@ -89,6 +90,9 @@ func getFileBytes(r *http.Request, key string) <-chan backblaze.UploadFile {
 
 func Upload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "application/json")
+	if r.Method == "OPTIONS" {
+		return
+	}
 	// Check file size isnt too big
 	if ok := fileSizeIsOk(w, r); ok != true {
 		log.Println("File too big")
@@ -157,12 +161,15 @@ func main() {
 			log.Fatal("Error loading .env file")
 		}
 	}
-	http.HandleFunc("/upload", Upload)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/upload", Upload)
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		log.Fatal("No port set")
 	}
-	err := http.ListenAndServe(":"+port, nil)
+	handler := cors.Default().Handler(mux)
+	err := http.ListenAndServe(":"+port, handler)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
