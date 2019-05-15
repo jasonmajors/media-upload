@@ -73,6 +73,7 @@ func getFileBytes(r *http.Request, key string) <-chan backblaze.UploadFile {
 		fileType := http.DetectContentType(fileBytes)
 		// Check valid mimetype
 		if valid := validateFileType(fileType); valid != true {
+			// TODO: Figure out how to return the error out of the goroutine
 			panic("getFileBytes: Invalid file type")
 		}
 		uploadFile := new(backblaze.UploadFile)
@@ -88,7 +89,10 @@ func getFileBytes(r *http.Request, key string) <-chan backblaze.UploadFile {
 }
 
 func Upload(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("content-type", "application/json")
+	setupResponse(&w, r)
+	if (*r).Method == "OPTIONS" {
+		return
+	}
 	// Check file size isnt too big
 	if ok := fileSizeIsOk(w, r); ok != true {
 		log.Println("File too big")
@@ -132,6 +136,12 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 		jsonErr(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+}
+
+func setupResponse(w *http.ResponseWriter, req *http.Request) {
+	(*w).Header().Set("Content-Type", "application/json")
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+	(*w).Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 }
 
 func jsonErr(w http.ResponseWriter, message string, status int) {
