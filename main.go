@@ -19,6 +19,7 @@ const maxUploadSize = 2 * 1024 * 1024 * 5 // 10mb
 func fileSizeIsOk(w http.ResponseWriter, r *http.Request) bool {
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
 	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
+		log.Println(err.Error())
 		return false
 	}
 	return true
@@ -43,7 +44,7 @@ func validateFileType(fileType string) bool {
 func getFileFromForm(r *http.Request, key string) (multipart.File, *multipart.FileHeader) {
 	file, handler, err := r.FormFile(key)
 	if err != nil {
-		fmt.Println("Unable to read file", err)
+		log.Println("Unable to read file", err)
 		panic("Unable to read file")
 	}
 	defer file.Close()
