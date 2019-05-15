@@ -90,22 +90,21 @@ func getFileBytes(r *http.Request, key string) <-chan backblaze.UploadFile {
 
 func Upload(w http.ResponseWriter, r *http.Request) {
 	setupResponse(&w, r)
-	// if (*r).Method == "OPTIONS" {
-	// 	return
-	// }
+	if (*r).Method == "OPTIONS" {
+		return
+	}
 	// Check file size isnt too big
-
-	if secret := (*r).URL.Query().Get("token"); secret != os.Getenv("TOKEN") {
+	if ok := fileSizeIsOk(w, r); ok != true {
+		log.Println("File too big")
+		jsonErr(w, "File too big, man", http.StatusBadRequest)
+		return
+	}
+	if secret := r.URL.Query().Get("token"); secret != os.Getenv("TOKEN") {
 		log.Println("Unauthorized")
 		jsonErr(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	if (*r).Method == "POST" {
-		if ok := fileSizeIsOk(w, r); ok != true {
-			log.Println("File too big")
-			jsonErr(w, "File too big, man", http.StatusBadRequest)
-			return
-		}
+	if r.Method == "POST" {
 		imageBytes := getFileBytes(r, "image")
 		audioBytes := getFileBytes(r, "audio")
 
@@ -141,8 +140,8 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 
 func setupResponse(w *http.ResponseWriter, req *http.Request) {
 	(*w).Header().Set("Content-Type", "application/json")
-	// (*w).Header().Set("Access-Control-Allow-Origin", "*")
-	// (*w).Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+	(*w).Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 }
 
 func jsonErr(w http.ResponseWriter, message string, status int) {
