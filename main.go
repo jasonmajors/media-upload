@@ -169,6 +169,7 @@ func main() {
 	if port == "" {
 		log.Fatal("No port set")
 	}
+	// TODO: Setup allowed origins and methods for cors to env variables
 	handler := cors.Default().Handler(mux)
 	err := http.ListenAndServe(":"+port, handler)
 	if err != nil {

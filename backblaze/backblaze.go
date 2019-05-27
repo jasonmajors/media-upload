@@ -224,14 +224,14 @@ func Save(payloads []UploadFile) (map[string]UploadResponse, error) {
 			}
 			downloadUrl := b2.makeDownloadUrl(authResp, uploadMeta.FileName)
 			responses[uploadMeta.FileName] = UploadResponse{downloadUrl, uploadMeta}
-		} else {
 			// Something went wrong...
+		} else {
 			bodyBytes, _ := ioutil.ReadAll(resp.Body)
 			// Log it out for now since I'm not prepared for this
 			log.Println(string(bodyBytes))
 			err := errors.New(string(bodyBytes))
 			// Exit function with error
-			// Probably a better way to handle this though
+			// TODO: Probably a better way to handle this though
 			return responses, err
 		}
 	}
