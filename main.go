@@ -100,6 +100,7 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 		jsonErr(w, "File too big, man", http.StatusBadRequest)
 		return
 	}
+	// TODO: Real auth
 	if secret := r.URL.Query().Get("token"); secret != os.Getenv("TOKEN") {
 		log.Println("Unauthorized")
 		jsonErr(w, "Unauthorized", http.StatusUnauthorized)
