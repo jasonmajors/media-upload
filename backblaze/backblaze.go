@@ -216,10 +216,12 @@ func Save(payloads []UploadFile) (map[string]UploadResponse, error) {
 			// Create struct with the response and the download URL
 			bodyBytes, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
+				// TODO: Don't want this... will exit the application
 				log.Fatal(err)
 			}
 			uploadMeta := UploadMeta{}
 			if err := json.Unmarshal(bodyBytes, &uploadMeta); err != nil {
+				// TODO: Don't want this... will exit the application
 				log.Fatal(err)
 			}
 			downloadUrl := b2.makeDownloadUrl(authResp, uploadMeta.FileName)
