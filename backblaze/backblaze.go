@@ -94,15 +94,16 @@ func (b2 B2BackBlazeClient) getUploadUrl(authResp AuthResponse) UploadUrlRespons
 	req.Header.Set("Authorization", authResp.AuthorizationToken)
 	// THIS could be a sendRequest method
 	client := &http.Client{}
+	log.Println("Fetching an upload URL")
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println("getUploadUrl: Request failed. ", err.Error())
+		log.Println("getUploadUrl: Request failed. ", err.Error())
 	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println("getUploadUrl: Couldn't read the body. ", err.Error())
+		log.Println("getUploadUrl: Couldn't read the body. ", err.Error())
 	}
 
 	var result UploadUrlResponse
@@ -125,7 +126,10 @@ func (b2 B2BackBlazeClient) uploadFile(
 	requestChan := make(chan http.Response)
 	go func() {
 		log.Println("Uploading: ", handler.Filename)
+		// TODO: Would be nice if we didnt have to get a new upload URL everytime?
 		uploadUrlResp := b2.getUploadUrl(authResp)
+		log.Println("Upload URL is: ", uploadUrlResp.UploadUrl)
+
 		req, err := http.NewRequest(
 			http.MethodPost,
 			uploadUrlResp.UploadUrl,
@@ -147,14 +151,14 @@ func (b2 B2BackBlazeClient) uploadFile(
 		}
 		// SEND REQUEST METHOD
 		client := &http.Client{}
+		log.Println("Making upload request...")
 		resp, err := client.Do(req)
 		if err != nil {
 			fmt.Println("uploadFile: Request failed. ", err.Error())
+			resp.Body.Close()
 		}
-		//defer resp.Body.Close()
-		log.Println("Upload file resp status: ", resp.Status)
-
 		requestChan <- *resp
+		log.Println("Upload file response code: ", resp.Status)
 
 		close(requestChan)
 	}()
@@ -200,6 +204,7 @@ func MakeB2Client() B2BackBlazeClient {
 // Save a file(s) to the backblaze cloud
 func Save(payloads []UploadFile) (map[string]UploadResponse, error) {
 	b2 := MakeB2Client()
+	// TODO: Would be nice to not have to do this everytime if we dont need to
 	authResp := b2.authorizeAccount()
 	// Initialize a slice of http.Response channels
 	var chans []<-chan http.Response
@@ -226,6 +231,8 @@ func Save(payloads []UploadFile) (map[string]UploadResponse, error) {
 				log.Fatal(err)
 			}
 			downloadUrl := b2.makeDownloadUrl(authResp, uploadMeta.FileName)
+			log.Println(fmt.Sprintf("Download URL for %s is %s", uploadMeta.FileName, downloadUrl))
+
 			responses[uploadMeta.FileName] = UploadResponse{downloadUrl, uploadMeta}
 			// Something went wrong...
 		} else {

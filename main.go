@@ -62,8 +62,6 @@ func getBytes(file multipart.File) []byte {
 	return fileBytes
 }
 
-// TODO: return a channel containing a backblaze.UploadFile and possibly an err
-// dont work yet
 func getFileBytes(r *http.Request, key string) <-chan backblaze.UploadFile {
 	// need to return the handler...
 	file, handler := getFileFromForm(r, key)
@@ -90,6 +88,27 @@ func getFileBytes(r *http.Request, key string) <-chan backblaze.UploadFile {
 	return bytesOut
 }
 
+func preparePayloadFromForm(keys []string, w http.ResponseWriter, r *http.Request) ([]backblaze.UploadFile, error) {
+	var uploadFileChannels []<-chan backblaze.UploadFile
+	var payload []backblaze.UploadFile
+	var err error
+
+	for _, formKey := range keys {
+		fileChan := getFileBytes(r, formKey)
+		uploadFileChannels = append(uploadFileChannels, fileChan)
+	}
+	for _, fileChan := range uploadFileChannels {
+		uploadFile := <-fileChan
+		if uploadFile.Error != nil {
+			log.Println("Error:", uploadFile.Error.Error())
+			err = uploadFile.Error
+		}
+		payload = append(payload, uploadFile)
+	}
+
+	return payload, err
+}
+
 func Upload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "application/json")
 	if r.Method == "OPTIONS" {
@@ -109,27 +128,16 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Method == "POST" {
 		formKeys := []string{"image", "audio"}
-
-		var uploadFileChannels []<-chan backblaze.UploadFile
-		var payload []backblaze.UploadFile
-
-		for _, formKey := range formKeys {
-			fileChan := getFileBytes(r, formKey)
-			uploadFileChannels = append(uploadFileChannels, fileChan)
-		}
-		for _, fileChan := range uploadFileChannels {
-			uploadFile := <-fileChan
-			if uploadFile.Error != nil {
-				log.Println("Error:", uploadFile.Error.Error())
-				jsonErr(w, uploadFile.Error.Error(), http.StatusBadRequest)
-				return
-			}
-			payload = append(payload, uploadFile)
+		payload, err := preparePayloadFromForm(formKeys, w, r)
+		if err != nil {
+			jsonErr(w, err.Error(), http.StatusBadRequest)
+			return
 		}
 
 		responses, err := backblaze.Save(payload)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err.Error())
+			jsonErr(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -137,7 +145,6 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 
 		for _, backblazeResp := range responses {
 			response[backblazeResp.ApiResponse.FileName] = backblazeResp.DownloadUrl
-			log.Println("Download URL: ", backblazeResp.DownloadUrl)
 		}
 		jsonResp, err := json.Marshal(response)
 		if err != nil {
