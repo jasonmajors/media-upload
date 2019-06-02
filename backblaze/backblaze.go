@@ -55,6 +55,7 @@ type UploadResponse struct {
 type UploadFile struct {
 	Bytes   []byte
 	Handler *multipart.FileHeader
+	Error   error
 }
 
 // Request our APi information from our account ID and application key

@@ -64,34 +64,30 @@ func getBytes(file multipart.File) []byte {
 
 // TODO: return a channel containing a backblaze.UploadFile and possibly an err
 // dont work yet
-func getFileBytes(r *http.Request, key string) (<-chan backblaze.UploadFile, <-chan error) {
+func getFileBytes(r *http.Request, key string) <-chan backblaze.UploadFile {
 	// need to return the handler...
 	file, handler := getFileFromForm(r, key)
 	defer file.Close()
 
 	bytesOut := make(chan backblaze.UploadFile)
-	errs := make(chan error, 1)
 
 	go func(handler *multipart.FileHeader) {
 		log.Println("Detecting and validating filetype for: ", handler.Filename)
-
 		fileBytes := getBytes(file)
 		fileType := http.DetectContentType(fileBytes)
+		uploadFile := new(backblaze.UploadFile)
 		// Check valid mimetype
 		if valid := validateFileType(fileType); valid == true {
-			uploadFile := new(backblaze.UploadFile)
 			uploadFile.Handler = handler
 			uploadFile.Bytes = fileBytes
-
-			bytesOut <- *uploadFile
 		} else {
-			errs <- errors.New("Invalid file type")
+			uploadFile.Error = errors.New("Invalid file type")
 		}
+		bytesOut <- *uploadFile
 		close(bytesOut)
-		close(errs)
 	}(handler)
 
-	return bytesOut, errs
+	return bytesOut
 }
 
 func Upload(w http.ResponseWriter, r *http.Request) {
@@ -112,26 +108,25 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method == "POST" {
-		// TODO: Could iterate over our "keys" and just call getFileBytes?
-		imageBytes, imageErrs := getFileBytes(r, "image")
-		audioBytes, audioErrs := getFileBytes(r, "audio")
+		formKeys := []string{"image", "audio"}
 
-		if err, open := <-imageErrs; open {
-			log.Println("Error:", err.Error())
-			jsonErr(w, err.Error(), http.StatusBadRequest)
-			return
+		var uploadFileChannels []<-chan backblaze.UploadFile
+		var payload []backblaze.UploadFile
+
+		for _, formKey := range formKeys {
+			fileChan := getFileBytes(r, formKey)
+			uploadFileChannels = append(uploadFileChannels, fileChan)
+		}
+		for _, fileChan := range uploadFileChannels {
+			uploadFile := <-fileChan
+			if uploadFile.Error != nil {
+				log.Println("Error:", uploadFile.Error.Error())
+				jsonErr(w, uploadFile.Error.Error(), http.StatusBadRequest)
+				return
+			}
+			payload = append(payload, uploadFile)
 		}
 
-		if err, open := <-audioErrs; open {
-			log.Println("Error:", err.Error())
-			jsonErr(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		imageFileBytes := <-imageBytes
-		audioFileBytes := <-audioBytes
-
-		payload := []backblaze.UploadFile{imageFileBytes, audioFileBytes}
 		responses, err := backblaze.Save(payload)
 		if err != nil {
 			log.Fatal(err)
